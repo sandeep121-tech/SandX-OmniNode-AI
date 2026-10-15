@@ -1,9 +1,9 @@
-streamlit
+streamlit==1.32.0
 google-generativeai
 pillow
-langchain
-langchain-community
-duckduckgo-search
-wikipedia
 pypdf
-pydantic
+langchain==0.1.16
+langchain-community==0.0.32
+duckduckgo-search==5.3.0
+wikipedia
+pydantic<3.0,>=2.0
