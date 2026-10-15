@@ -160,24 +160,26 @@ except Exception as e:
     st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets! Please add your valid key in app settings.")
     st.stop()
 
-# Smart Function to get active model
+# Smart Dynamic Function to get working model
 def get_working_gemini_model():
-    priority_models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
-    
-    for m_name in priority_models:
-        try:
-            return genai.GenerativeModel(m_name)
-        except Exception:
-            continue
-            
     try:
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                return genai.GenerativeModel(m.name)
+        available_models = [
+            m.name for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods
+        ]
+        
+        # Check priority preferences
+        for pref in ['gemini-1.5-flash', 'gemini-pro', 'models/gemini-1.5-flash', 'models/gemini-pro']:
+            for am in available_models:
+                if pref in am:
+                    return genai.GenerativeModel(am)
+                    
+        if available_models:
+            return genai.GenerativeModel(available_models[0])
     except Exception:
         pass
         
-    return genai.GenerativeModel('gemini-1.5-flash')
+    return genai.GenerativeModel('gemini-pro')
 
 # Display active chat history
 current_messages = st.session_state.chats[st.session_state.current_chat_id]
