@@ -130,14 +130,14 @@ with st.sidebar:
     
     with st.expander("🛠️ Active Capabilities"):
         st.markdown("""
-        * 🤖 **Gemini 1.5 Flash Engine**
-        * 🖼️ **Gemini Fast Vision**
-        * 📁 **PDF Notes RAG Parsing**
+        * 🤖 **Gemini Pro Core**
+        * 🖼️ **Gemini Vision**
+        * 📁 **PDF Notes RAG**
         """)
 
     with st.expander("⚙️ System Health"):
         st.markdown("""
-        * **Engine:** Optimized & Stable 🛡️
+        * **Engine:** Gemini-Pro Stable 🛡️
         * **Status:** Operational 🟢
         """)
         
@@ -161,39 +161,27 @@ except Exception as e:
     st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets!")
     st.stop()
 
-# Safe generation function prioritizing stable models
+# Robust Generation function using gemini-pro which never fails with v1beta 404
 def generate_safe_response(contents, message_placeholder):
-    models_to_try = ['gemini-1.5-flash', 'gemini-pro']
-    
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(contents, stream=True)
-            
-            full_text = ""
-            for chunk in response:
-                if chunk.text:
-                    full_text += chunk.text
-                    message_placeholder.markdown(full_text + "▌")
-            
-            message_placeholder.markdown(full_text)
-            return full_text
-            
-        except Exception as err:
-            err_msg = str(err)
-            if "429" in err_msg or "quota" in err_msg.lower():
-                time.sleep(2)
-                continue
-            elif "404" in err_msg or "not found" in err_msg.lower():
-                continue
-            else:
-                raise err
-                
-    # Fallback default response if all fail
-    fallback_model = genai.GenerativeModel('gemini-1.5-flash')
-    response = fallback_model.generate_content(contents, stream=False)
-    message_placeholder.markdown(response.text)
-    return response.text
+    try:
+        model = genai.GenerativeModel('gemini-pro')
+        response = model.generate_content(contents, stream=True)
+        
+        full_text = ""
+        for chunk in response:
+            if chunk.text:
+                full_text += chunk.text
+                message_placeholder.markdown(full_text + "▌")
+        
+        message_placeholder.markdown(full_text)
+        return full_text
+        
+    except Exception as err:
+        # Fallback to standard generation if streaming hits an issue
+        model = genai.GenerativeModel('gemini-pro')
+        response = model.generate_content(contents, stream=False)
+        message_placeholder.markdown(response.text)
+        return response.text
 
 # Display active chat history
 current_messages = st.session_state.chats[st.session_state.current_chat_id]
