@@ -129,13 +129,13 @@ with st.sidebar:
     
     with st.expander("🛠️ Active Capabilities"):
         st.markdown("""
-        * 🤖 **Gemini AI Core**
+        * 🤖 **Gemini AI Core (3.8 Flash)**
         * 📁 **PDF Notes RAG Parsing**
         """)
 
     with st.expander("⚙️ System Health"):
         st.markdown("""
-        * **Engine:** Auto-Resolved
+        * **Engine:** Gemini-3.8-Flash Active
         * **Status:** Operational 🟢
         """)
         
@@ -159,15 +159,9 @@ except Exception as e:
     st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets! Please add your valid key in app settings.")
     st.stop()
 
-# Automatic Model Finder Function (Never fails with 404)
+# Set model to gemini-3.8-flash as specified by API
 def get_working_gemini_model():
-    try:
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                return genai.GenerativeModel(m.name)
-    except Exception:
-        pass
-    return genai.GenerativeModel('gemini-pro')
+    return genai.GenerativeModel('gemini-3.8-flash')
 
 # Display active chat history
 current_messages = st.session_state.chats[st.session_state.current_chat_id]
