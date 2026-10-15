@@ -4,7 +4,7 @@ import streamlit as st
 from PIL import Image
 import pypdf
 import google.generativeai as genai
-from langchain_community.tools import DuckDuckGoSearchRun
+from duckduckgo_search import DDGS
 from langchain_community.tools.wikipedia.tool import WikipediaQueryRun
 from langchain_community.utilities import WikipediaAPIWrapper
 from auth import register_user, verify_user
@@ -184,8 +184,17 @@ def get_working_gemini_model():
         
     return genai.GenerativeModel('gemini-1.5-flash')
 
-# External Tools Setup
-search_tool = DuckDuckGoSearchRun()
+# Direct Web Search Function
+def simple_web_search(query):
+    try:
+        results = DDGS().text(query, max_results=3)
+        if results:
+            return "\n".join([r['body'] for r in results])
+    except Exception:
+        pass
+    return "No web results found."
+
+# Wikipedia Tool Setup
 api_wrapper = WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=300)
 wiki_tool = WikipediaQueryRun(api_wrapper=api_wrapper)
 
@@ -275,7 +284,7 @@ if user_query:
                     elif any(word in query_lower for word in ["who is", "what is", "wikipedia", "define"]):
                         tool_result = wiki_tool.run(user_query)
                     else:
-                        tool_result = search_tool.run(user_query)
+                        tool_result = simple_web_search(user_query)
 
                     prompt_text = f"{system_instruction}\n\nUser Question: {user_query}\nContext/Tool Data: {tool_result}"
                     response = active_model.generate_content(prompt_text)
