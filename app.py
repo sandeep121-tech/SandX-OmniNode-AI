@@ -10,7 +10,7 @@ from auth import register_user, verify_user
 # Page Config
 st.set_page_config(page_title="SandX-OmniNode AI", page_icon="⚡", layout="wide")
 
-# Custom Styling for Mobile & Desktop Responsiveness
+# Custom Styling
 st.markdown("""
     <style>
     .main {
@@ -131,13 +131,13 @@ with st.sidebar:
     with st.expander("🛠️ Active Capabilities"):
         st.markdown("""
         * 🤖 **Gemini AI Core**
-        * 🖼️ **Gemini Vision Analyzer**
+        * 🖼️ **Mobile Vision Analyzer**
         * 📁 **PDF Notes RAG Parsing**
         """)
 
     with st.expander("⚙️ System Health"):
         st.markdown("""
-        * **Engine:** Mobile-Optimized 🛡️
+        * **Engine:** Universal Uploader 🛡️
         * **Status:** Operational 🟢
         """)
         
@@ -191,12 +191,11 @@ for message in current_messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- MOBILE FRIENDLY UPLOADERS (Vertical Layout) ---
-st.write("### 📎 Attachments & Input")
-uploaded_image = st.file_uploader("🖼️ Upload Image (PNG, JPG)", type=["png", "jpg", "jpeg"])
-uploaded_pdf = st.file_uploader("📁 Upload PDF Notes", type=["pdf"])
+# --- UNIVERSAL SINGLE FILE UPLOADER (Phone & PC Friendly) ---
+st.write("### 📎 Upload File / Notes")
+uploaded_file = st.file_uploader("Apni Image (PNG, JPG) ya PDF Notes yahan upload karein:", type=["png", "jpg", "jpeg", "pdf"])
 
-user_query = st.chat_input("SandX-Node se kuch bhi puchein ya image/notes upload karein...")
+user_query = st.chat_input("SandX-Node se kuch bhi puchein ya file upload karke sawal poochein...")
 
 # File Processing Logic
 file_attached = False
@@ -205,26 +204,28 @@ file_type = ""
 file_name = ""
 pdf_extracted_text = ""
 
-if uploaded_image is not None:
-    try:
-        file_obj = Image.open(uploaded_image)
-        file_attached = True
-        file_type = "image"
-        file_name = uploaded_image.name
-    except Exception as e:
-        st.error(f"Image read error: {str(e)}")
-elif uploaded_pdf is not None:
-    try:
-        reader = pypdf.PdfReader(uploaded_pdf)
-        for page in reader.pages:
-            extracted = page.extract_text()
-            if extracted:
-                pdf_extracted_text += extracted + "\n"
-        file_attached = True
-        file_type = "pdf"
-        file_name = uploaded_pdf.name
-    except Exception as e:
-        st.error(f"PDF read error: {str(e)}")
+if uploaded_file is not None:
+    file_name = uploaded_file.name
+    file_ext = file_name.split('.')[-1].lower()
+    
+    if file_ext in ["png", "jpg", "jpeg"]:
+        try:
+            file_obj = Image.open(uploaded_file)
+            file_attached = True
+            file_type = "image"
+        except Exception as e:
+            st.error(f"Image read error: {str(e)}")
+    elif file_ext == "pdf":
+        try:
+            reader = pypdf.PdfReader(uploaded_file)
+            for page in reader.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    pdf_extracted_text += extracted + "\n"
+            file_attached = True
+            file_type = "pdf"
+        except Exception as e:
+            st.error(f"PDF read error: {str(e)}")
 
 # Main Trigger
 if user_query:
