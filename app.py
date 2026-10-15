@@ -129,14 +129,13 @@ with st.sidebar:
     
     with st.expander("🛠️ Active Capabilities"):
         st.markdown("""
-        * 🤖 **Gemini Pro Core**
-        * 🖼️ **Gemini Vision Analyzer**
+        * 🤖 **Gemini AI Core**
         * 📁 **PDF Notes RAG Parsing**
         """)
 
     with st.expander("⚙️ System Health"):
         st.markdown("""
-        * **Engine:** Gemini Pro Active
+        * **Engine:** Auto-Resolved
         * **Status:** Operational 🟢
         """)
         
@@ -160,8 +159,14 @@ except Exception as e:
     st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets! Please add your valid key in app settings.")
     st.stop()
 
-# Stable Model Function using gemini-pro
+# Automatic Model Finder Function (Never fails with 404)
 def get_working_gemini_model():
+    try:
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                return genai.GenerativeModel(m.name)
+    except Exception:
+        pass
     return genai.GenerativeModel('gemini-pro')
 
 # Display active chat history
@@ -170,11 +175,8 @@ for message in current_messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Layout: Chat Input + Attachments (Image & PDF)
+# Layout: Chat Input + PDF Upload
 col1, col2, col3 = st.columns([0.70, 0.15, 0.15])
-
-with col2:
-    uploaded_image = st.file_uploader("Image", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
 
 with col3:
     uploaded_pdf = st.file_uploader("PDF Notes", type=["pdf"], label_visibility="collapsed")
@@ -184,18 +186,11 @@ with col1:
 
 # File Processing Logic
 file_attached = False
-file_obj = None
 file_type = ""
 file_name = ""
 pdf_extracted_text = ""
 
-if uploaded_image is not None:
-    file_obj = Image.open(uploaded_image)
-    st.image(file_obj, caption="Attached Image Preview", width=400)
-    file_attached = True
-    file_type = "image"
-    file_name = uploaded_image.name
-elif uploaded_pdf is not None:
+if uploaded_pdf is not None:
     try:
         reader = pypdf.PdfReader(uploaded_pdf)
         for page in reader.pages:
@@ -232,13 +227,9 @@ if user_query:
                 3. Maintain clean markdown formatting with headings and bullet points.
                 """
                 
-                if file_attached and file_type == "image":
-                    prompt_text = f"{system_instruction}\n\nUser Question: {user_query}\n\nAnalyze the image thoroughly."
-                    response = active_model.generate_content([prompt_text, file_obj])
-                    final_answer = response.text
-                elif file_attached and file_type == "pdf":
+                if file_attached and file_type == "pdf":
                     if not pdf_extracted_text.strip():
-                        final_answer = "⚠️ Is PDF mein text select nahi ho raha (yeh scanned image PDF hai). Kripya iska screenshot lekar image uploader mein upload karein, AI turant explain kar dega!"
+                        final_answer = "⚠️ Is PDF mein text select nahi ho raha (yeh scanned image PDF hai)."
                     else:
                         prompt_text = f"{system_instruction}\n\nUploaded PDF Content:\n{pdf_extracted_text[:4000]}\n\nUser Question: {user_query}\n\nAnswer the user question based on the uploaded PDF content above."
                         response = active_model.generate_content(prompt_text)
