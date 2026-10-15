@@ -130,6 +130,7 @@ with st.sidebar:
     with st.expander("🛠️ Active Capabilities"):
         st.markdown("""
         * 🤖 **Gemini AI Core (3.8 Flash)**
+        * 🖼️ **Gemini Vision Analyzer**
         * 📁 **PDF Notes RAG Parsing**
         """)
 
@@ -159,7 +160,7 @@ except Exception as e:
     st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets! Please add your valid key in app settings.")
     st.stop()
 
-# Set model to gemini-3.8-flash as specified by API
+# Model setup
 def get_working_gemini_model():
     return genai.GenerativeModel('gemini-3.8-flash')
 
@@ -169,22 +170,34 @@ for message in current_messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Layout: Chat Input + PDF Upload
+# Layout: Chat Input + Attachments (Image & PDF Uploaders)
 col1, col2, col3 = st.columns([0.70, 0.15, 0.15])
 
+with col2:
+    uploaded_image = st.file_uploader("🖼️ Image", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+
 with col3:
-    uploaded_pdf = st.file_uploader("PDF Notes", type=["pdf"], label_visibility="collapsed")
+    uploaded_pdf = st.file_uploader("📁 PDF Notes", type=["pdf"], label_visibility="collapsed")
 
 with col1:
-    user_query = st.chat_input("SandX-Node se kuch bhi puchein ya notes upload karein...")
+    user_query = st.chat_input("SandX-Node se kuch bhi puchein ya image/notes upload karein...")
 
 # File Processing Logic
 file_attached = False
+file_obj = None
 file_type = ""
 file_name = ""
 pdf_extracted_text = ""
 
-if uploaded_pdf is not None:
+if uploaded_image is not None:
+    try:
+        file_obj = Image.open(uploaded_image)
+        file_attached = True
+        file_type = "image"
+        file_name = uploaded_image.name
+    except Exception as e:
+        st.error(f"Image read karne mein error aayi: {str(e)}")
+elif uploaded_pdf is not None:
     try:
         reader = pypdf.PdfReader(uploaded_pdf)
         for page in reader.pages:
@@ -207,6 +220,8 @@ if user_query:
 
     with st.chat_message("user"):
         st.markdown(display_content)
+        if file_attached and file_type == "image" and file_obj:
+            st.image(file_obj, caption="Uploaded Image", width=300)
 
     with st.chat_message("assistant"):
         with st.spinner("SandX-OmniNode analyze kar raha hai..."):
@@ -221,9 +236,13 @@ if user_query:
                 3. Maintain clean markdown formatting with headings and bullet points.
                 """
                 
-                if file_attached and file_type == "pdf":
+                if file_attached and file_type == "image":
+                    prompt_text = f"{system_instruction}\n\nUser Question: {user_query}\n\nAnalyze the image thoroughly and explain it."
+                    response = active_model.generate_content([prompt_text, file_obj])
+                    final_answer = response.text
+                elif file_attached and file_type == "pdf":
                     if not pdf_extracted_text.strip():
-                        final_answer = "⚠️ Is PDF mein text select nahi ho raha (yeh scanned image PDF hai)."
+                        final_answer = "⚠️ Is PDF mein text select nahi ho raha (yeh scanned image PDF hai). Kripya iska screenshot lekar image uploader mein upload karein, AI turant explain kar dega!"
                     else:
                         prompt_text = f"{system_instruction}\n\nUploaded PDF Content:\n{pdf_extracted_text[:4000]}\n\nUser Question: {user_query}\n\nAnswer the user question based on the uploaded PDF content above."
                         response = active_model.generate_content(prompt_text)
