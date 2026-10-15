@@ -130,14 +130,14 @@ with st.sidebar:
     
     with st.expander("🛠️ Active Capabilities"):
         st.markdown("""
-        * 🤖 **Gemini Auto-Resilient Engine**
+        * 🤖 **Gemini 1.5 Flash Engine**
         * 🖼️ **Gemini Fast Vision**
         * 📁 **PDF Notes RAG Parsing**
         """)
 
     with st.expander("⚙️ System Health"):
         st.markdown("""
-        * **Engine:** Rate-Limit Protected 🛡️
+        * **Engine:** Optimized & Stable 🛡️
         * **Status:** Operational 🟢
         """)
         
@@ -161,9 +161,9 @@ except Exception as e:
     st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets!")
     st.stop()
 
-# Helper function to generate content with automatic retries and model fallbacks
+# Safe generation function prioritizing stable models
 def generate_safe_response(contents, message_placeholder):
-    models_to_try = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-pro']
+    models_to_try = ['gemini-1.5-flash', 'gemini-pro']
     
     for model_name in models_to_try:
         try:
@@ -182,18 +182,16 @@ def generate_safe_response(contents, message_placeholder):
         except Exception as err:
             err_msg = str(err)
             if "429" in err_msg or "quota" in err_msg.lower():
-                message_placeholder.markdown("⏳ *API Rate Limit hit. Waiting 3 seconds before auto-retrying...*")
-                time.sleep(3)
+                time.sleep(2)
                 continue
             elif "404" in err_msg or "not found" in err_msg.lower():
                 continue
             else:
                 raise err
                 
-    # Final retry with gemini-3.8-flash after brief pause
-    time.sleep(4)
-    model = genai.GenerativeModel('gemini-3.8-flash')
-    response = model.generate_content(contents, stream=False)
+    # Fallback default response if all fail
+    fallback_model = genai.GenerativeModel('gemini-1.5-flash')
+    response = fallback_model.generate_content(contents, stream=False)
     message_placeholder.markdown(response.text)
     return response.text
 
