@@ -2,6 +2,3 @@ streamlit
 google-generativeai
 pillow
 pypdf
-duckduckgo-search
-wikipedia
-pydantic
