@@ -130,14 +130,14 @@ with st.sidebar:
     
     with st.expander("🛠️ Active Capabilities"):
         st.markdown("""
-        * 🤖 **Gemini Pro Core**
-        * 🖼️ **Gemini Vision**
-        * 📁 **PDF Notes RAG**
+        * 🤖 **Gemini AI Core**
+        * 🖼️ **Gemini Vision Analyzer**
+        * 📁 **PDF Notes RAG Parsing**
         """)
 
     with st.expander("⚙️ System Health"):
         st.markdown("""
-        * **Engine:** Gemini-Pro Stable 🛡️
+        * **Engine:** Dynamic Auto-Resolver 🛡️
         * **Status:** Operational 🟢
         """)
         
@@ -161,27 +161,31 @@ except Exception as e:
     st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets!")
     st.stop()
 
-# Robust Generation function using gemini-pro which never fails with v1beta 404
-def generate_safe_response(contents, message_placeholder):
+# Bulletproof model finder that queries available models directly from API
+def get_working_model(contents):
+    # Try listing models available for generateContent directly
     try:
-        model = genai.GenerativeModel('gemini-pro')
-        response = model.generate_content(contents, stream=True)
-        
-        full_text = ""
-        for chunk in response:
-            if chunk.text:
-                full_text += chunk.text
-                message_placeholder.markdown(full_text + "▌")
-        
-        message_placeholder.markdown(full_text)
-        return full_text
-        
-    except Exception as err:
-        # Fallback to standard generation if streaming hits an issue
-        model = genai.GenerativeModel('gemini-pro')
-        response = model.generate_content(contents, stream=False)
-        message_placeholder.markdown(response.text)
-        return response.text
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                try:
+                    model = genai.GenerativeModel(m.name)
+                    res = model.generate_content(contents)
+                    return res.text
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    
+    # Fallback hardcoded models with prefixes
+    for model_name in ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']:
+        try:
+            model = genai.GenerativeModel(model_name)
+            res = model.generate_content(contents)
+            return res.text
+        except Exception:
+            continue
+            
+    raise Exception("All models exhausted or quota exceeded. Please wait a minute.")
 
 # Display active chat history
 current_messages = st.session_state.chats[st.session_state.current_chat_id]
@@ -244,6 +248,7 @@ if user_query:
 
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
+        message_placeholder.markdown("⏳ *SandX-Node process kar raha hai...*")
         
         try:
             system_instruction = """
@@ -258,9 +263,8 @@ if user_query:
                 payload = [prompt_text, file_obj]
             elif file_attached and file_type == "pdf":
                 if not pdf_extracted_text.strip():
-                    full_response = "⚠️ Is PDF mein text select nahi ho raha (scanned image PDF hai)."
-                    message_placeholder.markdown(full_response)
                     payload = None
+                    final_answer = "⚠️ Is PDF mein text select nahi ho raha (scanned image PDF hai)."
                 else:
                     prompt_text = f"{system_instruction}\n\nPDF Text:\n{pdf_extracted_text[:3000]}\n\nQuestion: {user_query}"
                     payload = prompt_text
@@ -269,9 +273,9 @@ if user_query:
                 payload = prompt_text
 
             if payload:
-                final_answer = generate_safe_response(payload, message_placeholder)
-            else:
-                final_answer = full_response
+                final_answer = get_working_model(payload)
+            
+            message_placeholder.markdown(final_answer)
 
         except Exception as e:
             final_answer = f"⚠️ **Execution Error:** {str(e)}"
