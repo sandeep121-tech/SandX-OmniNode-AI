@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import streamlit as st
 from PIL import Image
 import pypdf
@@ -129,14 +130,14 @@ with st.sidebar:
     
     with st.expander("🛠️ Active Capabilities"):
         st.markdown("""
-        * 🤖 **Gemini AI Core (3.8 Flash)**
-        * 🖼️ **Gemini Vision Analyzer**
+        * 🤖 **Gemini Auto-Resilient Engine**
+        * 🖼️ **Gemini Fast Vision**
         * 📁 **PDF Notes RAG Parsing**
         """)
 
     with st.expander("⚙️ System Health"):
         st.markdown("""
-        * **Engine:** Gemini-3.8-Flash Active
+        * **Engine:** Rate-Limit Protected 🛡️
         * **Status:** Operational 🟢
         """)
         
@@ -152,17 +153,49 @@ with st.sidebar:
 st.title("⚡ SandX-OmniNode AI")
 st.write("---")
 
-# API Key Setup securely using Streamlit Secrets
+# API Key Setup
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=GEMINI_API_KEY)
 except Exception as e:
-    st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets! Please add your valid key in app settings.")
+    st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets!")
     st.stop()
 
-# Model setup
-def get_working_gemini_model():
-    return genai.GenerativeModel('gemini-3.8-flash')
+# Helper function to generate content with automatic retries and model fallbacks
+def generate_safe_response(contents, message_placeholder):
+    models_to_try = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-pro']
+    
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(contents, stream=True)
+            
+            full_text = ""
+            for chunk in response:
+                if chunk.text:
+                    full_text += chunk.text
+                    message_placeholder.markdown(full_text + "▌")
+            
+            message_placeholder.markdown(full_text)
+            return full_text
+            
+        except Exception as err:
+            err_msg = str(err)
+            if "429" in err_msg or "quota" in err_msg.lower():
+                message_placeholder.markdown("⏳ *API Rate Limit hit. Waiting 3 seconds before auto-retrying...*")
+                time.sleep(3)
+                continue
+            elif "404" in err_msg or "not found" in err_msg.lower():
+                continue
+            else:
+                raise err
+                
+    # Final retry with gemini-3.8-flash after brief pause
+    time.sleep(4)
+    model = genai.GenerativeModel('gemini-3.8-flash')
+    response = model.generate_content(contents, stream=False)
+    message_placeholder.markdown(response.text)
+    return response.text
 
 # Display active chat history
 current_messages = st.session_state.chats[st.session_state.current_chat_id]
@@ -170,7 +203,7 @@ for message in current_messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Layout: Chat Input + Attachments (Image & PDF Uploaders)
+# Layout: Chat Input + Attachments
 col1, col2, col3 = st.columns([0.70, 0.15, 0.15])
 
 with col2:
@@ -196,7 +229,7 @@ if uploaded_image is not None:
         file_type = "image"
         file_name = uploaded_image.name
     except Exception as e:
-        st.error(f"Image read karne mein error aayi: {str(e)}")
+        st.error(f"Image read error: {str(e)}")
 elif uploaded_pdf is not None:
     try:
         reader = pypdf.PdfReader(uploaded_pdf)
@@ -208,7 +241,7 @@ elif uploaded_pdf is not None:
         file_type = "pdf"
         file_name = uploaded_pdf.name
     except Exception as e:
-        st.error(f"PDF read karne mein error aayi: {str(e)}")
+        st.error(f"PDF read error: {str(e)}")
 
 # Main Trigger
 if user_query:
@@ -224,38 +257,40 @@ if user_query:
             st.image(file_obj, caption="Uploaded Image", width=300)
 
     with st.chat_message("assistant"):
-        with st.spinner("SandX-OmniNode analyze kar raha hai..."):
-            try:
-                active_model = get_working_gemini_model()
-                
-                system_instruction = """
-                You are SandX-OmniNode AI created by Sandeep.
-                Language Rules:
-                1. If the user asks in Hindi or Hinglish, respond clearly in natural Hinglish or Hindi.
-                2. If the user asks in English, respond in clear English.
-                3. Maintain clean markdown formatting with headings and bullet points.
-                """
-                
-                if file_attached and file_type == "image":
-                    prompt_text = f"{system_instruction}\n\nUser Question: {user_query}\n\nAnalyze the image thoroughly and explain it."
-                    response = active_model.generate_content([prompt_text, file_obj])
-                    final_answer = response.text
-                elif file_attached and file_type == "pdf":
-                    if not pdf_extracted_text.strip():
-                        final_answer = "⚠️ Is PDF mein text select nahi ho raha (yeh scanned image PDF hai). Kripya iska screenshot lekar image uploader mein upload karein, AI turant explain kar dega!"
-                    else:
-                        prompt_text = f"{system_instruction}\n\nUploaded PDF Content:\n{pdf_extracted_text[:4000]}\n\nUser Question: {user_query}\n\nAnswer the user question based on the uploaded PDF content above."
-                        response = active_model.generate_content(prompt_text)
-                        final_answer = response.text
+        message_placeholder = st.empty()
+        
+        try:
+            system_instruction = """
+            You are SandX-OmniNode AI created by Sandeep.
+            Language Rules:
+            1. If user asks in Hindi or Hinglish, respond clearly in natural Hinglish or Hindi.
+            2. Keep answers concise, direct, structured, and easy to read.
+            """
+            
+            if file_attached and file_type == "image":
+                prompt_text = f"{system_instruction}\n\nUser Question: {user_query}\n\nExplain the diagram/image briefly and clearly."
+                payload = [prompt_text, file_obj]
+            elif file_attached and file_type == "pdf":
+                if not pdf_extracted_text.strip():
+                    full_response = "⚠️ Is PDF mein text select nahi ho raha (scanned image PDF hai)."
+                    message_placeholder.markdown(full_response)
+                    payload = None
                 else:
-                    prompt_text = f"{system_instruction}\n\nUser Question: {user_query}"
-                    response = active_model.generate_content(prompt_text)
-                    final_answer = response.text
+                    prompt_text = f"{system_instruction}\n\nPDF Text:\n{pdf_extracted_text[:3000]}\n\nQuestion: {user_query}"
+                    payload = prompt_text
+            else:
+                prompt_text = f"{system_instruction}\n\nUser Question: {user_query}"
+                payload = prompt_text
 
-            except Exception as e:
-                final_answer = f"⚠️ **Execution Error:** {str(e)}"
+            if payload:
+                final_answer = generate_safe_response(payload, message_placeholder)
+            else:
+                final_answer = full_response
 
-            st.markdown(final_answer)
-            current_messages.append({"role": "assistant", "content": final_answer})
-            st.session_state.chats[st.session_state.current_chat_id] = current_messages
-            save_all_chats(st.session_state.chats)
+        except Exception as e:
+            final_answer = f"⚠️ **Execution Error:** {str(e)}"
+            message_placeholder.markdown(final_answer)
+
+        current_messages.append({"role": "assistant", "content": final_answer})
+        st.session_state.chats[st.session_state.current_chat_id] = current_messages
+        save_all_chats(st.session_state.chats)
