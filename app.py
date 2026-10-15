@@ -10,7 +10,7 @@ from auth import register_user, verify_user
 # Page Config
 st.set_page_config(page_title="SandX-OmniNode AI", page_icon="⚡", layout="wide")
 
-# Custom Styling
+# Custom Styling for Mobile & Desktop Responsiveness
 st.markdown("""
     <style>
     .main {
@@ -137,7 +137,7 @@ with st.sidebar:
 
     with st.expander("⚙️ System Health"):
         st.markdown("""
-        * **Engine:** Dynamic Auto-Resolver 🛡️
+        * **Engine:** Mobile-Optimized 🛡️
         * **Status:** Operational 🟢
         """)
         
@@ -161,9 +161,8 @@ except Exception as e:
     st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets!")
     st.stop()
 
-# Bulletproof model finder that queries available models directly from API
+# Bulletproof model finder
 def get_working_model(contents):
-    # Try listing models available for generateContent directly
     try:
         for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
@@ -176,7 +175,6 @@ def get_working_model(contents):
     except Exception:
         pass
     
-    # Fallback hardcoded models with prefixes
     for model_name in ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']:
         try:
             model = genai.GenerativeModel(model_name)
@@ -193,17 +191,12 @@ for message in current_messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Layout: Chat Input + Attachments
-col1, col2, col3 = st.columns([0.70, 0.15, 0.15])
+# --- MOBILE FRIENDLY UPLOADERS (Vertical Layout) ---
+st.write("### 📎 Attachments & Input")
+uploaded_image = st.file_uploader("🖼️ Upload Image (PNG, JPG)", type=["png", "jpg", "jpeg"])
+uploaded_pdf = st.file_uploader("📁 Upload PDF Notes", type=["pdf"])
 
-with col2:
-    uploaded_image = st.file_uploader("🖼️ Image", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
-
-with col3:
-    uploaded_pdf = st.file_uploader("📁 PDF Notes", type=["pdf"], label_visibility="collapsed")
-
-with col1:
-    user_query = st.chat_input("SandX-Node se kuch bhi puchein ya image/notes upload karein...")
+user_query = st.chat_input("SandX-Node se kuch bhi puchein ya image/notes upload karein...")
 
 # File Processing Logic
 file_attached = False
