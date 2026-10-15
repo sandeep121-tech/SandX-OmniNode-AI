@@ -4,9 +4,6 @@ import streamlit as st
 from PIL import Image
 import pypdf
 import google.generativeai as genai
-from duckduckgo_search import DDGS
-from langchain_community.tools.wikipedia.tool import WikipediaQueryRun
-from langchain_community.utilities import WikipediaAPIWrapper
 from auth import register_user, verify_user
 
 # Page Config
@@ -132,9 +129,7 @@ with st.sidebar:
     
     with st.expander("🛠️ Active Capabilities"):
         st.markdown("""
-        * 🌐 **Web Search Engine**
-        * 📚 **Wikipedia Hub**
-        * 🧮 **Math & Reasoning**
+        * 🤖 **Gemini AI Core**
         * 🖼️ **Gemini Vision Analyzer**
         * 📁 **PDF Notes RAG Parsing**
         """)
@@ -162,10 +157,10 @@ try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=GEMINI_API_KEY)
 except Exception as e:
-    st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets! Please add your valid AIzaSy... key in app settings.")
+    st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets! Please add your valid key in app settings.")
     st.stop()
 
-# Smart Function to get active model (Using gemini-1.5-flash as priority)
+# Smart Function to get active model
 def get_working_gemini_model():
     priority_models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
     
@@ -183,20 +178,6 @@ def get_working_gemini_model():
         pass
         
     return genai.GenerativeModel('gemini-1.5-flash')
-
-# Direct Web Search Function
-def simple_web_search(query):
-    try:
-        results = DDGS().text(query, max_results=3)
-        if results:
-            return "\n".join([r['body'] for r in results])
-    except Exception:
-        pass
-    return "No web results found."
-
-# Wikipedia Tool Setup
-api_wrapper = WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=300)
-wiki_tool = WikipediaQueryRun(api_wrapper=api_wrapper)
 
 # Display active chat history
 current_messages = st.session_state.chats[st.session_state.current_chat_id]
@@ -278,15 +259,7 @@ if user_query:
                         response = active_model.generate_content(prompt_text)
                         final_answer = response.text
                 else:
-                    query_lower = user_query.lower()
-                    if any(op in query_lower for op in ["+", "-", "*", "/", "calculate", "solve"]):
-                        tool_result = "Math calculation task."
-                    elif any(word in query_lower for word in ["who is", "what is", "wikipedia", "define"]):
-                        tool_result = wiki_tool.run(user_query)
-                    else:
-                        tool_result = simple_web_search(user_query)
-
-                    prompt_text = f"{system_instruction}\n\nUser Question: {user_query}\nContext/Tool Data: {tool_result}"
+                    prompt_text = f"{system_instruction}\n\nUser Question: {user_query}"
                     response = active_model.generate_content(prompt_text)
                     final_answer = response.text
 
