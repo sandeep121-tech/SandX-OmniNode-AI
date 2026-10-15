@@ -129,14 +129,14 @@ with st.sidebar:
     
     with st.expander("🛠️ Active Capabilities"):
         st.markdown("""
-        * 🤖 **Gemini AI Core (Flash)**
+        * 🤖 **Gemini Pro Core**
         * 🖼️ **Gemini Vision Analyzer**
         * 📁 **PDF Notes RAG Parsing**
         """)
 
     with st.expander("⚙️ System Health"):
         st.markdown("""
-        * **Engine:** Gemini-1.5-Flash Active
+        * **Engine:** Gemini Pro Active
         * **Status:** Operational 🟢
         """)
         
@@ -160,9 +160,9 @@ except Exception as e:
     st.error("⚠️ GEMINI_API_KEY not found in Streamlit Secrets! Please add your valid key in app settings.")
     st.stop()
 
-# Strict Flash Model Function to prevent Quota issues
+# Stable Model Function using gemini-pro
 def get_working_gemini_model():
-    return genai.GenerativeModel('gemini-1.5-flash')
+    return genai.GenerativeModel('gemini-pro')
 
 # Display active chat history
 current_messages = st.session_state.chats[st.session_state.current_chat_id]
